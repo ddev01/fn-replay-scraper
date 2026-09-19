@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>ReplayAssistant.Update</RootNamespace>
+    <AssemblyName>ReplayAssistant.Update</AssemblyName>
+    <AssemblyTitle>Replay Assistant Updater</AssemblyTitle>
+    <Product>Replay Assistant</Product>
+    <Description>Replay Assistant Updater</Description>
+    <ApplicationIcon>..\..\assets\replay-assistant.ico</ApplicationIcon>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "microsoft.docs.mcp": {
+      "url": "https://learn.microsoft.com/api/mcp"
+    },
+    "nuget": {
+      "command": "dnx",
+      "args": ["NuGet.Mcp.Server", "--yes"]
+    }
+  }
+}

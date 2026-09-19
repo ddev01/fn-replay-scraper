@@ -1,0 +1,22 @@
+---
+description: Completed-only Fortnite .replay parse; never live files
+globs: "**/*.{cs,csproj}"
+alwaysApply: false
+---
+
+# Replay parsing (completed only)
+
+- Watch `%LOCALAPPDATA%\FortniteGame\Saved\Demos`. Open/copy with `FileShare.ReadWrite`; never exclusive-lock Fortnite’s writer.
+- Detect completion by **file size stability**, then one header inspect. If `IsLive`, do not parse.
+- Never parse in-progress/live replays. Do not clear `IsLive`, do not rewrite Demos, do not apply live PKCS7 workarounds.
+- Parse with `FortniteReplayReader` `ParseMode.Minimal` (not `EventsOnly` — no player list).
+- Worker + hard timeout; hangs are failures (`unsupported` / `failed`), not infinite waits.
+- Humans: `IsBot` is not true, and `PlayerId` / `EpicId` present. POST **ids only**.
+
+```csharp
+// ❌ BAD
+reader.ReadReplay(stream, ParseMode.EventsOnly);
+
+// ✅ GOOD
+reader.ReadReplay(stream, ParseMode.Minimal);
+```

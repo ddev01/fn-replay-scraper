@@ -1,0 +1,12 @@
+---
+description: WinExe Replay Assistant scope; no tray, no live parse, no OAuth
+alwaysApply: true
+---
+
+# V1 scope
+
+Windows background **WinExe** that watches completed Fortnite Demos, extracts unique human Epic IDs, POSTs them to a placeholder API, and self-updates from GitHub Releases.
+
+Do: silent WinExe (no console flash), friendly name + icon, current-user logon scheduled task (not Startup `.lnk`) to `%LOCALAPPDATA%\ReplayAssistant\ReplayAssistant.exe`, FileSystemWatcher + size-stable complete detection, SQLite skip/backlog, `X-Api-Key` POST, silent updater helper, file logs, single-instance mutex.
+
+Do not: tray/NotifyIcon, consoles, Kestrel/HTML, live replay decrypt hacks, OAuth, process inject, hiding from Task Manager, phishing, or extra analyzer NuGet packs.

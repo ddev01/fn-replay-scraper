@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>ReplayAssistant</RootNamespace>
+    <AssemblyName>ReplayAssistant</AssemblyName>
+    <AssemblyTitle>Replay Assistant</AssemblyTitle>
+    <Product>Replay Assistant</Product>
+    <Description>Replay Assistant</Description>
+    <ApplicationIcon>..\..\assets\replay-assistant.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseWindowsForms>false</UseWindowsForms>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <RetainVMGarbageCollection>false</RetainVMGarbageCollection>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ReplayAssistant.Core\ReplayAssistant.Core.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\appsettings.example.json" Link="appsettings.example.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>

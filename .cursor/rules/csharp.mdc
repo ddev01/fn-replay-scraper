@@ -1,0 +1,21 @@
+---
+description: C#/.NET 10 quality; CSharpier format; no extra analyzer packs
+globs: "**/*.{cs,csproj}"
+alwaysApply: false
+---
+
+# C# quality
+
+- Target **.NET 10**. CSharpier owns layout (`dotnet tool restore` then `dotnet csharpier format`). Do not fight CSharpier with IDE0055 or StyleCop/FluentAssertions packs.
+- Log with `ILogger` **message templates**, not string interpolation into the template.
+- Tests: **xUnit `Assert` only**. Do not add extra assertion libraries.
+- Small WinExe + Core + tests. **No EF Core**. Keep **FortniteReplayReader** `ParseMode.Minimal` for completed files only.
+- Scope: `.cursor/rules/v1-scope.mdc` and `.cursor/rules/replay-parsing.mdc`.
+
+```csharp
+// ❌ BAD
+_logger.LogInformation($"parsed {path}");
+
+// ✅ GOOD
+_logger.LogInformation("parsed {Path}", path);
+```

@@ -1,0 +1,17 @@
+bin/
+obj/
+dist/
+publish/
+pack/
+*.7z
+*.zip
+*.user
+*.suo
+.vs/
+testdata/*.replay
+testdata/live/*.replay
+appsettings.json
+**/appsettings.json
+*.db
+*.db-shm
+*.db-wal
