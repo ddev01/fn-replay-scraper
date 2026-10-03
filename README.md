@@ -1,8 +1,8 @@
 # Replay Assistant
 
-Windows background app that watches **completed** Fortnite replays, extracts unique human Epic IDs (bots excluded), and POSTs them to a placeholder API. It starts with Windows, has no console and no tray icon, and shows up in Task Manager as **Replay Assistant**.
+Windows app that runs at logon, scrapes **completed** Fortnite replays once, extracts unique human Epic IDs (bots excluded), POSTs them to a placeholder API, then **exits**. It does not stay running during a gaming session. Uploads are delayed until the next boot (typically ~a day).
 
-This is not stealth software. The process is visible under a normal name and icon. There is no tray hiding, no phishing, and no attempt to conceal the program.
+This is not stealth software. When it runs you may briefly see **Replay Assistant** in Task Manager. There is no tray hiding, no phishing, and no attempt to conceal the program.
 
 ## Requirements
 
@@ -33,7 +33,7 @@ Published files land in `dist\`: `ReplayAssistant.exe`, `ReplayAssistant.Update.
 
 That copies the EXEs into `%LOCALAPPDATA%\ReplayAssistant\`, writes `appsettings.json` there if missing, and registers a **logon scheduled task** named Replay Assistant (current user, no admin). It also deletes any old Startup-folder `.lnk`.
 
-The task does **not** show under Task Manager → Startup Apps. There is no tray / hidden-icons entry. When it is running you will still see **Replay Assistant** under Processes (that is intentional). Task Scheduler → Task Scheduler Library → Replay Assistant is the registration if you need to check it.
+The task does **not** show under Task Manager → Startup Apps. There is no tray / hidden-icons entry. At each sign-in the task starts the EXE; after update-check + scrape + POST it exits on its own. Task Scheduler → Task Scheduler Library → Replay Assistant is the registration if you need to check it.
 
 Remove:
 
@@ -52,9 +52,7 @@ A single-instance mutex prevents duplicate Startup launches.
 | `GitHubOwner` / `GitHubRepo` | Public Releases for auto-update (`ddev01` / `fn-replay-scraper`) |
 | `GitHubToken` | Leave empty. Public Releases do not need a token |
 | `DemosPath` | Override Demos folder |
-| `StableSeconds` | Size must be unchanged this long (default 60) |
-| `WatchOnlyWhenFortniteClosed` | Watch and parse only while `FortniteClient-Win64-Shipping` is not running (avoids a parse spike in the next match) |
-| `FortniteProcessPollMinutes` | How often to check that process (default 5) |
+| `StableSeconds` | Size must be unchanged this long before a demo is scraped (default 60) |
 | `ApiChunkSize` | Max players per replay POST (capped at 1000) |
 
 Do not commit real API keys. `appsettings.example.json` is the template.
@@ -76,23 +74,23 @@ Content-Type: application/json
 }
 ```
 
-One POST per completed replay with a `replay_id` and at least one human (`replay_id` makes retries idempotent). Playlist and platform **policy is on NameFN**, not the EXE: Creative/unknown playlists are still POSTed; the API returns `skipped: playlist` or ingest. Humans only (`is_bot` dropped). `PlayerName` + raw `Platform` (`WIN`, `PS5`, `AND`, …) are sent when present; `StreamerModeName` / custom override are never sent. At most 60 POSTs per flush (1s apart) to stay under 60/min.
+One POST per completed replay with a `replay_id` and at least one human (`replay_id` makes retries idempotent). Playlist and platform **policy is on NameFN**, not the EXE: Creative/unknown playlists are still POSTed; the API returns `skipped: playlist` or ingest. Humans only (`is_bot` dropped). `PlayerName` + raw `Platform` (`WIN`, `PS5`, `AND`, …) are sent when present; `StreamerModeName` / custom override are never sent. At most 60 POSTs per run (1s apart) to stay under 60/min.
 
 PHP deny-list and token notes: `docs/php-playlist-filter.md`.
 
-On non-2xx the replay stays queued (`posted_at` null) and is retried after the next parse and every hour. A 2xx `{ "duplicate": true }` is treated as success.
+On non-2xx the replay stays queued (`posted_at` null) and is retried on the next boot. A 2xx `{ "duplicate": true }` is treated as success.
 
-## How it stays light on FPS
+## Boot scrape (why it uses almost no resources while gaming)
 
-- Idle wait is `FileSystemWatcher` (kernel events), not a tight poll of replay bytes.
-- Optional Fortnite process check is every few **minutes**. With `WatchOnlyWhenFortniteClosed`, parse and the Demos watcher stay off while the client is running; when it exits, catch-up runs.
-- Parse runs on a `BelowNormal` worker, one file at a time, only after size is stable, **never** while the header `IsLive` flag is set, and **never** while Fortnite is open (unless that setting is false).
-- SQLite writes happen after parse, not in the watcher callback.
-- After each parse the large replay graph is dropped, the GC compacting, and the working set trimmed so Task Manager RAM can fall back toward idle. Idle floor is still the self-contained .NET runtime (typically tens of MB), not a few MB.
+- The logon task starts the process; it does not keep a watcher or Fortnite process poll alive.
+- One catch-up pass over size-stable completed demos, then API flush, then exit.
+- Parse runs on a `BelowNormal` worker, one file at a time, **never** while the header `IsLive` flag is set.
+- After each parse the large replay graph is dropped and the working set trimmed; the process then exits so idle CPU during a match is zero.
+- Trade-off: new replays upload on the next sign-in, not mid-session.
 
 ## Auto-update
 
-On each process start the host calls GitHub Releases `latest` (no token, public repo). If the tag is newer, it downloads `ReplayAssistant.exe` to `update\`, starts `ReplayAssistant.Update.exe` (also WinExe), and exits. The updater waits for the host PID, replaces the running EXE, and relaunches it. Closing Replay Assistant and opening it again is enough to pick up a new Release.
+On each process start the host calls GitHub Releases `latest` (no token, public repo). If the tag is newer, it downloads `ReplayAssistant.exe` to `update\`, starts `ReplayAssistant.Update.exe` (also WinExe), and exits. The updater waits for the host PID, replaces the running EXE, and relaunches it. The new copy then runs its boot scrape and exits. Closing Replay Assistant and opening it again is enough to pick up a new Release.
 
 Publish a Release asset named `ReplayAssistant.exe` and tag `v1.0.1` (four-part `1.0.1.0` is fine). The running copy must be older than that tag.
 
@@ -108,7 +106,7 @@ Production `--install-startup` must not include `--console`.
 .\dist\ReplayAssistant.exe --console
 ```
 
-You should see catch-up parse lines, then idle watcher logs. Ctrl+C stops it. If nothing prints and it exits immediately, another instance is already running (Task Manager → Replay Assistant).
+You should see catch-up parse lines, then `Boot scrape finished; exiting`. If nothing prints and it exits immediately, another instance is already running (Task Manager → Replay Assistant).
 
 `dotnet run` also works:
 

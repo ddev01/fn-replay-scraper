@@ -5,8 +5,8 @@ alwaysApply: true
 
 # V1 scope
 
-Windows background **WinExe** that watches completed Fortnite Demos, extracts unique human Epic IDs, POSTs them to a placeholder API, and self-updates from GitHub Releases.
+Windows **WinExe** that runs at logon, scrapes completed Fortnite Demos once, POSTs unique human Epic IDs to a placeholder API, self-updates from GitHub Releases, then **exits**. It does not stay resident while gaming.
 
-Do: silent WinExe (no console flash), friendly name + icon, current-user logon scheduled task (not Startup `.lnk`) to `%LOCALAPPDATA%\ReplayAssistant\ReplayAssistant.exe`, FileSystemWatcher + size-stable complete detection, SQLite skip/backlog, `X-Api-Key` POST, silent updater helper, file logs, single-instance mutex.
+Do: silent WinExe (no console flash), friendly name + icon, current-user logon scheduled task (not Startup `.lnk`) to `%LOCALAPPDATA%\ReplayAssistant\ReplayAssistant.exe`, one-shot catch-up of size-stable completed replays, SQLite skip/backlog, `X-Api-Key` POST, silent updater helper, file logs, single-instance mutex, exit after update-check + scrape + POST.
 
-Do not: tray/NotifyIcon, consoles, Kestrel/HTML, live replay decrypt hacks, OAuth, process inject, hiding from Task Manager, phishing, or extra analyzer NuGet packs.
+Do not: long-running FileSystemWatcher or Fortnite process polling, tray/NotifyIcon, consoles, Kestrel/HTML, live replay decrypt hacks, OAuth, process inject, hiding from Task Manager, phishing, or extra analyzer NuGet packs.

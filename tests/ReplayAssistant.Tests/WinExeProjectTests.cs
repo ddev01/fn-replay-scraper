@@ -28,6 +28,18 @@ public class WinExeProjectTests
     }
 
     [Fact]
+    public void WorkerExitsAfterBootScrape()
+    {
+        var worker = Find("Worker.cs");
+        Assert.NotNull(worker);
+        var text = File.ReadAllText(worker!);
+        Assert.Contains("StopApplication", text, StringComparison.Ordinal);
+        Assert.Contains("BootFinished", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("DemosWatcher", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("FortniteProcessGate", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UpdaterProjectIsWinExe()
     {
         var csproj = Find("ReplayAssistant.Update.csproj");

@@ -8,6 +8,7 @@ namespace ReplayAssistant;
 internal sealed class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
+    private readonly IHostApplicationLifetime _lifetime;
     private readonly AppSettings _settings;
     private readonly AppPaths _paths;
     private readonly StateStore _store;
@@ -15,12 +16,11 @@ internal sealed class Worker : BackgroundService
     private readonly IdentityApiClient _api;
     private readonly GitHubUpdateChecker _updates;
     private readonly HttpClient _downloadClient;
-    private readonly ReplayCompletionGate _gate;
     private readonly ChannelWork _queue = new();
-    private bool _watchEnabled;
 
     public Worker(
         ILogger<Worker> logger,
+        IHostApplicationLifetime lifetime,
         AppSettings settings,
         AppPaths paths,
         StateStore store,
@@ -31,6 +31,7 @@ internal sealed class Worker : BackgroundService
     )
     {
         _logger = logger;
+        _lifetime = lifetime;
         _settings = settings;
         _paths = paths;
         _store = store;
@@ -38,7 +39,6 @@ internal sealed class Worker : BackgroundService
         _api = api;
         _updates = updates;
         _downloadClient = downloadClient;
-        _gate = new ReplayCompletionGate(_settings.StableWindow);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -55,42 +55,17 @@ internal sealed class Worker : BackgroundService
             HostLog.UpdateFailed(_logger, ex);
         }
 
-        EnqueueCatchUp();
-        if (!DeferForFortnite())
+        try
         {
+            EnqueueCatchUp();
             await FlushQueueAsync(stoppingToken).ConfigureAwait(false);
+            await FlushApiAsync(stoppingToken).ConfigureAwait(false);
+            HostLog.BootFinished(_logger);
         }
-
-        await FlushApiAsync(stoppingToken).ConfigureAwait(false);
-
-        using var watcher = new DemosWatcher(_settings.ResolvedDemosPath);
-        watcher.ReplayTouched += OnReplayTouched;
-        ApplyWatchGate(watcher);
-
-        using var drain = new PeriodicTimer(TimeSpan.FromSeconds(15));
-        using var apiRetry = new PeriodicTimer(TimeSpan.FromHours(1));
-        using var fortnitePoll = new PeriodicTimer(_settings.FortnitePollInterval);
-
-        var drainTask = DrainLoop(watcher, drain, stoppingToken);
-        var apiTask = ApiLoop(apiRetry, stoppingToken);
-        var fortniteTask = FortniteLoop(watcher, fortnitePoll, stoppingToken);
-        await Task.WhenAll(drainTask, apiTask, fortniteTask).ConfigureAwait(false);
-    }
-
-    private void OnReplayTouched(string path)
-    {
-        if (!path.EndsWith(".replay", StringComparison.OrdinalIgnoreCase))
+        finally
         {
-            return;
+            _lifetime.StopApplication();
         }
-
-        var (length, _) = DemosFolder.Snapshot(path);
-        if (length <= 0)
-        {
-            return;
-        }
-
-        _gate.Note(path, length, DateTimeOffset.UtcNow);
     }
 
     private void EnqueueCatchUp()
@@ -107,84 +82,6 @@ internal sealed class Worker : BackgroundService
         }
 
         HostLog.CatchUp(_logger, candidates.Count);
-    }
-
-    private async Task DrainLoop(
-        DemosWatcher watcher,
-        PeriodicTimer timer,
-        CancellationToken stoppingToken
-    )
-    {
-        while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
-        {
-            if (DeferForFortnite())
-            {
-                continue;
-            }
-
-            foreach (var path in _gate.DrainReady(DateTimeOffset.UtcNow))
-            {
-                _queue.Enqueue(path);
-            }
-
-            await FlushQueueAsync(stoppingToken).ConfigureAwait(false);
-        }
-    }
-
-    private async Task ApiLoop(PeriodicTimer timer, CancellationToken stoppingToken)
-    {
-        while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
-        {
-            await FlushApiAsync(stoppingToken).ConfigureAwait(false);
-        }
-    }
-
-    private async Task FortniteLoop(
-        DemosWatcher watcher,
-        PeriodicTimer timer,
-        CancellationToken stoppingToken
-    )
-    {
-        await ApplyWatchAndMaybeParseAsync(watcher, stoppingToken).ConfigureAwait(false);
-        while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
-        {
-            await ApplyWatchAndMaybeParseAsync(watcher, stoppingToken).ConfigureAwait(false);
-        }
-    }
-
-    private bool DeferForFortnite() =>
-        _settings.WatchOnlyWhenFortniteClosed && FortniteProcessGate.IsFortniteRunning();
-
-    private async Task ApplyWatchAndMaybeParseAsync(
-        DemosWatcher watcher,
-        CancellationToken stoppingToken
-    )
-    {
-        ApplyWatchGate(watcher);
-        if (!DeferForFortnite())
-        {
-            await FlushQueueAsync(stoppingToken).ConfigureAwait(false);
-        }
-    }
-
-    private void ApplyWatchGate(DemosWatcher watcher)
-    {
-        if (!_settings.WatchOnlyWhenFortniteClosed)
-        {
-            watcher.EnableRaisingEvents = true;
-            return;
-        }
-
-        var running = FortniteProcessGate.IsFortniteRunning();
-        var watch = !running;
-        watcher.EnableRaisingEvents = watch;
-        HostLog.FortniteWatch(_logger, running, watch);
-        if (watch && !_watchEnabled)
-        {
-            EnqueueCatchUp();
-        }
-
-        _watchEnabled = watch;
     }
 
     private async Task FlushQueueAsync(CancellationToken stoppingToken)

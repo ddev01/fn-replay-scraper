@@ -20,10 +20,6 @@ public sealed class AppSettings
 
     public int StableSeconds { get; init; } = 60;
 
-    public bool WatchOnlyWhenFortniteClosed { get; init; } = true;
-
-    public int FortniteProcessPollMinutes { get; init; } = 5;
-
     public int ParseTimeoutSeconds { get; init; } = 20;
 
     public int ApiChunkSize { get; init; } = 1000;
@@ -60,9 +56,6 @@ public sealed class AppSettings
 
     public TimeSpan ParseTimeout => TimeSpan.FromSeconds(Math.Max(5, ParseTimeoutSeconds));
 
-    public TimeSpan FortnitePollInterval =>
-        TimeSpan.FromMinutes(Math.Max(1, FortniteProcessPollMinutes));
-
     public static AppSettings FromEnvironment(AppSettings file)
     {
         return new AppSettings
@@ -92,8 +85,6 @@ public sealed class AppSettings
                 file.DemosPath
             ),
             StableSeconds = file.StableSeconds,
-            WatchOnlyWhenFortniteClosed = file.WatchOnlyWhenFortniteClosed,
-            FortniteProcessPollMinutes = file.FortniteProcessPollMinutes,
             ParseTimeoutSeconds = file.ParseTimeoutSeconds,
             ApiChunkSize = file.ApiChunkSize,
         };

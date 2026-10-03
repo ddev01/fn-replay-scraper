@@ -21,10 +21,10 @@ internal static partial class HostLog
     public static partial void CatchUp(ILogger logger, int count);
 
     [LoggerMessage(
-        Level = LogLevel.Debug,
-        Message = "Fortnite running={Running}; watcher={Watcher}"
+        Level = LogLevel.Information,
+        Message = "Boot scrape finished; exiting"
     )]
-    public static partial void FortniteWatch(ILogger logger, bool running, bool watcher);
+    public static partial void BootFinished(ILogger logger);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Parsing {Path} size={Size}")]
     public static partial void Parsing(ILogger logger, string path, long size);
